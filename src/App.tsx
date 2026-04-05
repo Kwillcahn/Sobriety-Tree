@@ -576,11 +576,7 @@ const ForestView = ({ completedTrees }: { completedTrees: any[] }) => {
 
 export default function App() {
   const [recoveryDate, setRecoveryDate] = useState(() => {
-    const saved = localStorage.getItem('recoveryDate');
-    if (saved) return saved;
-    const d = new Date();
-    d.setDate(d.getDate() - 42); // default to 42 days ago
-    return d.toISOString().split('T')[0];
+    return localStorage.getItem('recoveryDate') || '';
   });
 
   const [resetDate, setResetDate] = useState(() => {
@@ -597,7 +593,9 @@ export default function App() {
     }
   }, [resetDate]);
 
-  const daysSober = Math.max(0, Math.floor((new Date().getTime() - new Date(recoveryDate).getTime()) / (1000 * 60 * 60 * 24)));
+  const daysSober = recoveryDate
+    ? Math.max(0, Math.floor((new Date().getTime() - new Date(recoveryDate).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
   
   const completedYears = Math.floor(daysSober / 365);
   const startYear = new Date(recoveryDate).getFullYear();
@@ -947,7 +945,16 @@ export default function App() {
             <div className="mt-3 text-center space-y-1 w-full max-w-xs mx-auto">
               <div className="flex justify-center gap-8 mb-2">
                 <div>
-                  <motion.div className="text-4xl font-serif italic">{daysSober}</motion.div>
+                  {recoveryDate ? (
+                    <motion.div className="text-4xl font-serif italic">{daysSober}</motion.div>
+                  ) : (
+                    <button
+                      onClick={() => setIsSpecOpen(true)}
+                      className="text-sm font-bold text-[#5A7D4D] underline underline-offset-2"
+                    >
+                      Set date
+                    </button>
+                  )}
                   <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#5A7D4D]">Days Sober</p>
                 </div>
                 <div>
