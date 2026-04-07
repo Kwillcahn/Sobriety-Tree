@@ -25,7 +25,7 @@ export const DAILY_READINGS: string[] = [
 
   "Shame thrives in silence. It tells us we are uniquely, permanently broken in ways no one else could understand. But shame withers when we speak it out loud to someone safe. You are not the worst thing you've ever done. You are also every choice you have made to do better.",
 
-  "Today's commitment to sobriety is enough. You do not have to commit to forever right now. You don't have to promise the rest of the year, or the rest of the month, or even tomorrow. The only moment that belongs to you is this one. Stay sober for this hour. Then the next.",
+  "Today's commitment to sobriety is enough. You do not have to commit to forever right now. You don't have to promise the rest of the year, or the rest of the month, or even tomorrow. The only moment that belongs to you is this one. Stay clean for this hour. Then the next.",
 
   "There is a quietness that comes to those who have walked through the fire and survived. Not a deadness — a depth. A capacity for presence that people who have never suffered don't always recognize. Your pain has shaped you into someone of substance. Don't waste what you've learned.",
 
@@ -129,7 +129,7 @@ export const DAILY_READINGS: string[] = [
 
   "You are allowed to change your mind about who gets access to you. You are allowed to leave rooms that diminish you. You are allowed to grow beyond the relationships, the environments, and the versions of yourself that no longer serve your well-being. This is not disloyalty. This is survival.",
 
-  "There is real power in a sober mind. The clarity that comes when you are no longer navigating life through a filter — of substances, of numbness — is extraordinary. Most people in long-term recovery describe it as the gift they didn't know they were about to receive.",
+  "There is real power in a clean mind. The clarity that comes when you are no longer navigating life through a filter — of substances, of numbness — is extraordinary. Most people in long-term recovery describe it as the gift they didn't know they were about to receive.",
 
   "The language of recovery asks us to talk about our experience, strength, and hope — in that order. Not just the hard parts. Not just the hopeful parts. The strength — the middle — is what proves that moving from one to the other is actually possible. Share all three.",
 
@@ -161,7 +161,7 @@ export const DAILY_READINGS: string[] = [
 
   "You cannot control what other people do with your amends, your honesty, your growth. Some people will meet you with open arms. Others may never come around. You can only control your side of the street. Keep yours clean, not for them — but because living with integrity feels better than the alternative.",
 
-  "When you feel like you are going backwards, check your measurements. Recovery progress is sometimes not measured in days sober, but in how quickly you returned to yourself after a hard moment. In how much shorter the dark stretched. In the fact that you reached out instead of disappearing.",
+  "When you feel like you are going backwards, check your measurements. Recovery progress is sometimes not measured in days clean, but in how quickly you returned to yourself after a hard moment. In how much shorter the dark stretched. In the fact that you reached out instead of disappearing.",
 
   "Hope is not a feeling. It is a practice. It is the act of choosing to believe, despite evidence to the contrary, that things can be different. On the days when hope doesn't come naturally, borrow it from someone who has more than they need. That is what the room is for.",
 
