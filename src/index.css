@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Override Tailwind v4 font theme tokens with loaded web fonts */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
+}
+
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);

@@ -255,8 +255,9 @@ const TreeVisual = ({ stage: _stage, rotation, growth, zoom = 1, treeType = 'oak
   const yaw = (rotation * Math.PI) / 180;
 
   return (
+    // Slightly larger canvas makes tree the unmistakable focal point
     <motion.div
-      className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center"
+      className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center"
       animate={{ scale: treeScale }}
       transition={{ type: 'spring', stiffness: 110, damping: 22 }}
     >
@@ -316,21 +317,22 @@ const ActionButton = ({ icon: Icon, label, active, onClick }: { icon: any, label
       onClick?.();
     }}
     className={cn(
-      "flex flex-col items-center justify-center gap-1 p-1.5 rounded-2xl border transition-all duration-300 flex-1 min-w-0",
+      /* Slightly more padding and gap for a polished tab-bar feel */
+      "flex flex-col items-center justify-center gap-1.5 p-2 rounded-2xl border transition-all duration-300 flex-1 min-w-0",
       active 
-        ? "bg-[#5A7D4D] border-[#5A7D4D] shadow-lg shadow-[#5A7D4D]/20" 
-        : "bg-white/80 backdrop-blur-md border-black/5 shadow-sm hover:shadow-md"
+        ? "bg-[#5A7D4D] border-[#5A7D4D] shadow-lg shadow-[#5A7D4D]/25" 
+        : "bg-white/90 backdrop-blur-md border-black/5 shadow-sm hover:shadow-md hover:bg-white"
     )}
   >
     <div className={cn(
-      "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-      active ? "bg-white/20 text-white" : "bg-[#F0F4ED] text-[#5A7D4D]"
+      "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+      active ? "bg-white/20 text-white" : "bg-[#EFF4EC] text-[#5A7D4D]"
     )}>
-      <Icon size={16} />
+      <Icon size={17} />
     </div>
     <span className={cn(
-      "text-[8px] font-semibold uppercase tracking-tight transition-colors whitespace-nowrap",
-      active ? "text-white" : "text-[#2D3328]/60"
+      "text-[8px] font-bold uppercase tracking-[0.05em] transition-colors whitespace-nowrap",
+      active ? "text-white" : "text-[#2D3328]/50"
     )}>{label}</span>
   </motion.button>
 );
@@ -347,7 +349,7 @@ const PageWrapper = ({ children, id }: { children: React.ReactNode, id: string }
     className="absolute inset-0 w-full h-full px-6 overflow-y-auto no-scrollbar flex flex-col items-center"
   >
     <div className="flex-1 w-full" />
-    <div className="w-full flex flex-col items-center py-2 shrink-0">
+    <div className="w-full flex flex-col items-center py-4 shrink-0">
       {children}
     </div>
     <div className="flex-1 w-full" />
@@ -559,7 +561,7 @@ const ForestView = ({ completedTrees }: { completedTrees: any[] }) => {
           ) : (
             completedTrees.map((tree) => (
               <div key={tree.year} className="snap-center flex-shrink-0 flex flex-col items-center">
-                <div className={cn("w-48 h-64 rounded-3xl border backdrop-blur-sm flex items-center justify-center relative overflow-hidden", tree.bg, tree.border)}>
+                <div className={cn("w-48 h-64 rounded-3xl border backdrop-blur-sm flex items-center justify-center relative overflow-hidden shadow-lg shadow-black/[0.08]", tree.bg, tree.border)}>
                   <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent" />
                   <tree.icon size={72} color={tree.color} className="opacity-80 drop-shadow-md relative z-10" />
                 </div>
@@ -944,27 +946,29 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-            <div className="mt-3 text-center space-y-1 w-full max-w-xs mx-auto">
-              <div className="flex justify-center gap-8 mb-2">
-                <div>
-                  <motion.div className="text-4xl font-serif italic">{daysClean}</motion.div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#5A7D4D]">Days Clean</p>
+            {/* Stats: glass-morphism cards for Days Clean + Check-ins */}
+            <div className="mt-4 text-center w-full max-w-xs mx-auto space-y-3">
+              <div className="flex gap-3">
+                <div className="flex-1 bg-white/75 backdrop-blur-sm rounded-2xl py-4 px-3 shadow-sm border border-black/[0.05]">
+                  <motion.div className="text-4xl font-serif italic text-[#2D3328] leading-none">{daysClean}</motion.div>
+                  <p className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#5A7D4D] mt-1.5">Days Clean</p>
                 </div>
-                <div>
-                  <motion.div className="text-4xl font-serif italic">{checkInHistory.length}</motion.div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#5A7D4D]">Check-ins</p>
+                <div className="flex-1 bg-white/75 backdrop-blur-sm rounded-2xl py-4 px-3 shadow-sm border border-black/[0.05]">
+                  <motion.div className="text-4xl font-serif italic text-[#2D3328] leading-none">{checkInHistory.length}</motion.div>
+                  <p className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#5A7D4D] mt-1.5">Check-ins</p>
                 </div>
               </div>
-              
-              <div className="pt-2 flex flex-col items-center gap-2">
-                <div className="w-48 h-1 bg-black/5 rounded-full overflow-hidden">
+
+              {/* Growth progress bar inside its own card */}
+              <div className="bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3.5 shadow-sm border border-black/[0.05] flex flex-col gap-2">
+                <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${growthPercent}%` }}
-                    className="h-full bg-[#5A7D4D]"
+                    className="h-full bg-gradient-to-r from-[#5A7D4D] to-[#8BA888] rounded-full"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 font-medium">
+                <p className="text-[9px] text-gray-400 font-medium text-center">
                   {currentStage.name} • {growthPercent}% to Maturity
                 </p>
               </div>
@@ -981,7 +985,7 @@ export default function App() {
                 <CheckCircle2 size={40} />
               </div>
               <h2 className="text-3xl font-serif italic">Daily Check-in</h2>
-              <p className="text-sm text-gray-500 italic">"How is your spirit feeling today? Every breath is a new beginning."</p>
+              <p className="text-sm text-gray-400 font-serif italic leading-relaxed">"How is your spirit feeling today? Every breath is a new beginning."</p>
               <div className="grid grid-cols-3 gap-4 pt-4">
                 {['Calm', 'Restless', 'Strong'].map(mood => (
                   <button 
@@ -991,10 +995,11 @@ export default function App() {
                       setSelectedMood(mood);
                     }}
                     className={cn(
-                      "p-4 rounded-2xl border border-black/5 text-[10px] font-bold uppercase tracking-widest transition-colors",
+                      /* Tactile mood buttons with hover lift */
+                      "p-4 rounded-2xl border transition-all duration-200 text-[10px] font-bold uppercase tracking-wider",
                       selectedMood === mood 
-                        ? "bg-[#5A7D4D] text-white shadow-md shadow-[#5A7D4D]/20" 
-                        : "bg-white hover:bg-[#5A7D4D]/10 text-gray-600"
+                        ? "bg-[#5A7D4D] border-[#5A7D4D]/30 text-white shadow-md shadow-[#5A7D4D]/25" 
+                        : "bg-white border-black/5 hover:border-[#5A7D4D]/20 hover:bg-[#5A7D4D]/5 text-gray-500 hover:text-[#5A7D4D]"
                     )}
                   >
                     {mood}
@@ -1239,7 +1244,7 @@ export default function App() {
                           <p className="text-sm text-gray-400 italic text-center py-8">No meetings logged yet.</p>
                         ) : (
                           meetings.map((m, i) => (
-                            <div key={m.createdAt || `${m.name}-${m.time}-${i}`} className="p-4 bg-white rounded-2xl border border-black/5 flex justify-between items-center text-left">
+                            <div key={m.createdAt || `${m.name}-${m.time}-${i}`} className="p-4 bg-white rounded-2xl border border-black/5 shadow-sm flex justify-between items-center text-left">
                               <div>
                                 <p className="text-xs font-bold text-[#5A7D4D]">{m.day} • {m.time}</p>
                                 <p className="font-serif text-lg">{m.name}</p>
@@ -1359,7 +1364,7 @@ export default function App() {
                         const types: string[] = Array.isArray(m.types) ? m.types : [];
                         const address = [m.address, m.city, m.state].filter(Boolean).join(', ');
                         return (
-                          <div key={`${m.slug || m.name}-${i}`} className="p-4 bg-white rounded-2xl border border-black/5 text-left space-y-1">
+                          <div key={`${m.slug || m.name}-${i}`} className="p-4 bg-white rounded-2xl border border-black/5 shadow-sm text-left space-y-1">
                             <p className="font-serif text-base leading-snug">{m.name}</p>
                             <p className="text-xs font-bold text-[#5A7D4D]">{dayLabel}{dayLabel && timeLabel ? ' · ' : ''}{timeLabel}</p>
                             {address && (
@@ -1444,7 +1449,7 @@ export default function App() {
                     const dateStr = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
                     const timeStr = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
                     return (
-                      <div key={entry.date} className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                      <div key={entry.date} className="bg-white rounded-3xl border border-black/5 shadow-md shadow-black/[0.04] overflow-hidden">
                         <div className="px-5 pt-4 pb-3 border-b border-black/5 flex items-start justify-between gap-2">
                           <div>
                             <p className="text-xs font-bold text-[#5A7D4D]">{dateStr}</p>
@@ -1514,7 +1519,12 @@ export default function App() {
                 {filteredHistory.length === 0 ? (
                   <p className="text-gray-400 text-center italic mt-10">Your journey history will appear here.</p>
                 ) : filteredHistory.map((item, i) => (
-                  <div key={i} className="flex gap-4 items-start bg-white p-4 rounded-2xl border border-black/5">
+                  <div
+                    key={i}
+                    /* Colored left accent border coded by entry type */
+                    className="flex gap-4 items-start bg-white p-4 rounded-2xl border border-black/5 shadow-sm border-l-[3px]"
+                    style={{ borderLeftColor: item.type === 'checkin' ? '#5A7D4D' : item.type === 'meeting' ? '#D4A373' : item.type === 'journal' ? '#8BA888' : '#C9A96E' }}
+                  >
                     <div className="w-10 h-10 rounded-full bg-[#F5F7F2] flex items-center justify-center flex-shrink-0">
                       {item.type === 'checkin' && <CheckCircle2 size={16} className="text-[#5A7D4D]" />}
                       {item.type === 'meeting' && <Users size={16} className="text-[#D4A373]" />}
@@ -1587,9 +1597,10 @@ export default function App() {
                   Refresh
                 </button>
               </div>
-              <div className="p-8 bg-white rounded-3xl border border-black/5 shadow-sm relative text-left mt-8">
-                <Quote className="absolute top-4 left-4 text-[#5A7D4D]/10" size={48} />
-                <p className="font-serif text-base leading-relaxed text-[#2D3328] relative z-10 mt-2">
+              {/* Elevated quote card with warmer shadow and larger decorative quote mark */}
+              <div className="p-8 bg-white rounded-3xl border border-black/5 shadow-lg shadow-[#5A7D4D]/[0.06] relative text-left mt-4">
+                <Quote className="absolute top-3 left-3 text-[#5A7D4D]/[0.08]" size={54} />
+                <p className="font-serif text-[15px] leading-[1.75] text-[#2D3328] relative z-10 mt-2">
                   {currentReading}
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#5A7D4D] mt-6">— The Forest Guide</p>
@@ -1682,14 +1693,15 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="px-6 pt-4 pb-3 flex justify-between items-center z-10" style={{ paddingTop: 'max(1rem, var(--sat))' }}>
+      <header className="px-6 pb-3 flex justify-between items-center z-10 border-b border-black/[0.05]" style={{ paddingTop: 'max(1rem, var(--sat))' }}>
         <div className="flex flex-col">
-          <h1 className="text-xl font-serif italic font-medium tracking-tight">Recovery Forest</h1>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-[#5A7D4D] font-bold">Year One</span>
+          {/* App title uses Lora serif for warmth */}
+          <h1 className="text-2xl font-serif italic tracking-tight text-[#2D3328]">Recovery Forest</h1>
+          <span className="text-[9px] uppercase tracking-[0.28em] text-[#5A7D4D] font-bold mt-0.5">Year One</span>
         </div>
         <button 
           onClick={() => setIsSpecOpen(true)}
-          className="w-10 h-10 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center border border-black/5"
+          className="w-10 h-10 rounded-full bg-white/70 backdrop-blur-md flex items-center justify-center border border-black/5 shadow-sm hover:bg-white transition-colors"
         >
           <Settings size={18} />
         </button>
@@ -1700,7 +1712,7 @@ export default function App() {
         
         {/* View Toggles */}
         {(view === 'home' || view === 'forest') && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 flex bg-white/40 backdrop-blur-md p-1 rounded-full border border-black/5 z-20">
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 flex bg-white/60 backdrop-blur-md p-1 rounded-full border border-black/[0.06] shadow-sm z-20">
             <button 
               onClick={() => setView('home')}
               className={cn(
@@ -1726,7 +1738,7 @@ export default function App() {
         {view !== 'home' && view !== 'forest' && (
           <button 
             onClick={() => setView('home')}
-            className="absolute top-0 left-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#5A7D4D] z-20"
+            className="absolute top-3 left-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#5A7D4D] z-20"
           >
             <ChevronLeft size={16} />
             Back to Tree
@@ -1740,7 +1752,8 @@ export default function App() {
       </main>
 
       {/* Footer Actions */}
-      <footer className="px-4 pt-2" style={{ paddingBottom: 'max(0.75rem, var(--sab))' }}>
+      {/* Footer tab bar with subtle top separator */}
+      <footer className="px-4 pt-2 border-t border-black/[0.05]" style={{ paddingBottom: 'max(0.75rem, var(--sab))' }}>
         <div className="flex gap-1.5 w-full">
           <ActionButton 
             icon={CheckCircle2} 
