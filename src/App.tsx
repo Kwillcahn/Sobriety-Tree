@@ -987,6 +987,8 @@ export default function App() {
       setJournalEntries(prev => prev.filter(j => j.date !== item.data.date));
     } else if (item.type === 'reading') {
       setReadingMoments(prev => prev.filter(r => r.date !== item.data.date));
+    } else if (item.type === 'water') {
+      setWateredDays(prev => prev.filter(w => w.date !== item.data.date));
     }
   };
 
@@ -1824,7 +1826,8 @@ export default function App() {
           ...checkInHistory.map(c => ({ type: 'checkin', date: new Date(c.date), data: c })),
           ...meetings.map(m => ({ type: 'meeting', date: new Date(m.createdAt || new Date()), data: m })),
           ...journalEntries.map(j => ({ type: 'journal', date: new Date(j.date), data: j })),
-          ...readingMoments.map(r => ({ type: 'reading', date: new Date(r.date), data: r }))
+          ...readingMoments.map(r => ({ type: 'reading', date: new Date(r.date), data: r })),
+          ...wateredDays.filter(w => w.note).map(w => ({ type: 'water', date: new Date(w.date), data: w }))
         ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
         const availableMonths = ['All', ...Array.from(new Set(allHistory.map(item => 
@@ -1870,13 +1873,14 @@ export default function App() {
                     key={i}
                     /* Colored left accent border coded by entry type */
                     className="flex gap-4 items-start bg-white p-4 rounded-2xl border border-black/5 shadow-sm border-l-[3px]"
-                    style={{ borderLeftColor: item.type === 'checkin' ? '#5A7D4D' : item.type === 'meeting' ? '#D4A373' : item.type === 'journal' ? '#8BA888' : '#C9A96E' }}
+                    style={{ borderLeftColor: item.type === 'checkin' ? '#5A7D4D' : item.type === 'meeting' ? '#D4A373' : item.type === 'journal' ? '#8BA888' : item.type === 'water' ? '#6B8E9B' : '#C9A96E' }}
                   >
                     <div className="w-10 h-10 rounded-full bg-[#F5F7F2] flex items-center justify-center flex-shrink-0">
                       {item.type === 'checkin' && <CheckCircle2 size={16} className="text-[#5A7D4D]" />}
                       {item.type === 'meeting' && <Users size={16} className="text-[#D4A373]" />}
                       {item.type === 'journal' && <PenLine size={16} className="text-[#8BA888]" />}
                       {item.type === 'reading' && <Sun size={16} className="text-[#D4A373]" />}
+                      {item.type === 'water' && <span className="text-base leading-none">💧</span>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
@@ -1904,6 +1908,12 @@ export default function App() {
                         <>
                           <p className="font-medium">Received strength from today's reading</p>
                           <p className="text-xs text-gray-500 italic mt-1 line-clamp-2">"{item.data.quote || 'A daily reading brought you peace.'}"</p>
+                        </>
+                      )}
+                      {item.type === 'water' && (
+                        <>
+                          <p className="font-medium">Watered their tree</p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-3">{item.data.note}</p>
                         </>
                       )}
                     </div>
@@ -2051,7 +2061,7 @@ export default function App() {
             className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/90 backdrop-blur-md border border-[#5A7D4D]/20 shadow-lg"
           >
             <span className="text-2xl leading-none">{activeMilestone.emoji}</span>
-            <span className="text-sm font-bold text-[#2D3328] tracking-tight">{activeMilestone.label}</span>
+            <span className="text-sm font-bold text-[#2D3328] tracking-tight">{daysClean} Days Strong!</span>
             <button
               onClick={() => { setActiveMilestone(null); if (milestoneTimer.current !== null) window.clearTimeout(milestoneTimer.current); }}
               className="ml-1 p-1 rounded-full hover:bg-black/5 text-gray-400 hover:text-gray-600 transition-colors"
