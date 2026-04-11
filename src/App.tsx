@@ -143,18 +143,50 @@ const CANOPY_CLUSTERS: Array<[number, number, number, number]> = [
   [-0.56, 0.8, -0.42, 0.52],
 ];
 
-const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: string, yaw: number }) => {
+/**
+ * Maps days-into-current-year to a 0–1 visual growth ratio.
+ * Each stage milestone occupies ~25 % of the visual range so that
+ * every stage looks meaningfully different on screen.
+ *
+ *   0– 7 days  →  0.00 – 0.12  (seed / tiny sprout)
+ *   7–30 days  →  0.12 – 0.32  (young tree)
+ *  30–90 days  →  0.32 – 0.65  (growing tree)
+ * 90–365 days  →  0.65 – 1.00  (mature / full tree)
+ */
+function computeStageRatio(days: number): number {
+  if (days <= 0)   return 0;
+  if (days <= 7)   return (days / 7) * 0.12;
+  if (days <= 30)  return 0.12 + ((days - 7)  / 23)  * 0.20;
+  if (days <= 90)  return 0.32 + ((days - 30) / 60)  * 0.33;
+  return Math.min(1, 0.65 + ((days - 90) / 275) * 0.35);
+}
+
+const ProceduralTree = ({ daysInYear, treeType, yaw }: { daysInYear: number, treeType: string, yaw: number }) => {
   const profile = TREE_PROFILES[treeType] || TREE_PROFILES.oak;
   const treeRef = useRef<THREE.Group>(null);
   const canopyRef = useRef<THREE.Group>(null);
   const swayOffset = useMemo(() => Math.random() * Math.PI * 2, []);
 
-  const growthRatio = Math.max(0, Math.min(1, growth / 100));
-  const trunkHeight = 1.35 + growthRatio * 1.95;
-  const trunkTopRadius = 0.085 + growthRatio * 0.04;
-  const trunkBottomRadius = 0.16 + growthRatio * 0.07;
-  const canopyScale = 0.62 + growthRatio * 0.48;
-  const branchLength = 0.65 + growthRatio * 0.55;
+  // Stage-aware ratio: each milestone gets proportional visual weight
+  const r = computeStageRatio(daysInYear);
+
+  // Geometry scales: at r=0 the tree is a tiny seedling; at r=1 it is fully mature
+  const trunkHeight      = 0.45 + r * 2.85;   // 0.45 → 3.30
+  const trunkTopRadius   = 0.03 + r * 0.095;   // thin sprout → mature trunk
+  const trunkBottomRadius = 0.06 + r * 0.17;
+  const canopyScale      = 0.25 + r * 0.85;    // tiny bud → full canopy
+  const branchLength     = 0.30 + r * 0.90;
+
+  // Progressive branch unlock:
+  //  • seed  (< 7 d):  no branches
+  //  • sprout (7–30 d): 1 branch
+  //  • growing (30–90 d): 3 branches
+  //  • mature (90+ d):  all 4 branches
+  const BRANCH_ANGLES = [-1.25, -0.55, 0.5, 1.2] as const;
+  const activeBranches = r < 0.12 ? 0 : r < 0.32 ? 1 : r < 0.65 ? 3 : 4;
+
+  // Show canopy only once the sprout stage begins (7+ days)
+  const showCanopy = r >= 0.12;
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -169,17 +201,22 @@ const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: s
 
   return (
     <group ref={treeRef} position={[0, -1.65, 0]}>
+      {/* Main trunk */}
       <mesh castShadow receiveShadow position={[0, trunkHeight * 0.5, 0]}>
         <cylinderGeometry args={[trunkTopRadius, trunkBottomRadius, trunkHeight, 18]} />
         <meshStandardMaterial color={profile.trunk} roughness={0.96} metalness={0.04} />
       </mesh>
 
-      <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
-        <cylinderGeometry args={[trunkBottomRadius * 1.5, trunkBottomRadius * 1.15, 0.34, 18]} />
-        <meshStandardMaterial color={profile.bark} roughness={0.98} metalness={0.02} />
-      </mesh>
+      {/* Root flare — only worth showing once there's real trunk */}
+      {r >= 0.12 && (
+        <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
+          <cylinderGeometry args={[trunkBottomRadius * 1.5, trunkBottomRadius * 1.15, 0.34, 18]} />
+          <meshStandardMaterial color={profile.bark} roughness={0.98} metalness={0.02} />
+        </mesh>
+      )}
 
-      {[-1.25, -0.55, 0.5, 1.2].map((angle, index) => {
+      {/* Branches — unlock progressively with stage */}
+      {BRANCH_ANGLES.slice(0, activeBranches).map((angle, index) => {
         const branchSize = branchLength * (0.84 - index * 0.08);
         return (
           <group
@@ -188,14 +225,15 @@ const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: s
             rotation={[0.18 + index * 0.06, angle, angle > 0 ? -0.52 : 0.52]}
           >
             <mesh castShadow receiveShadow position={[0, branchSize * 0.5, 0]}>
-              <cylinderGeometry args={[0.03 + growthRatio * 0.012, 0.07 + growthRatio * 0.012, branchSize, 10]} />
+              <cylinderGeometry args={[0.03 + r * 0.012, 0.07 + r * 0.012, branchSize, 10]} />
               <meshStandardMaterial color={profile.bark} roughness={0.95} metalness={0.03} />
             </mesh>
           </group>
         );
       })}
 
-      {profile.canopyStyle === 'cone' && (
+      {/* Canopy — hidden during seed stage, grows in all subsequent stages */}
+      {showCanopy && profile.canopyStyle === 'cone' && (
         <group ref={canopyRef} position={[0, trunkHeight * 0.74, 0]} scale={[canopyScale, canopyScale, canopyScale]}>
           <mesh castShadow position={[0, 1.25, 0]}>
             <coneGeometry args={[0.6, 1.45, 16]} />
@@ -212,7 +250,7 @@ const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: s
         </group>
       )}
 
-      {profile.canopyStyle === 'weeping' && (
+      {showCanopy && profile.canopyStyle === 'weeping' && (
         <group ref={canopyRef} position={[0, trunkHeight * 0.8, 0]} scale={[canopyScale, canopyScale, canopyScale]}>
           <mesh castShadow position={[0, 0.66, 0]}>
             <sphereGeometry args={[0.94, 20, 20]} />
@@ -232,11 +270,11 @@ const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: s
         </group>
       )}
 
-      {profile.canopyStyle === 'round' && (
+      {showCanopy && profile.canopyStyle === 'round' && (
         <group ref={canopyRef} position={[0, trunkHeight * 0.76, 0]} scale={[canopyScale, canopyScale, canopyScale]}>
-          {CANOPY_CLUSTERS.map(([x, y, z, r], index) => (
-            <mesh key={`${x}-${y}-${z}-${r}`} castShadow position={[x, y, z]}>
-              <icosahedronGeometry args={[r, 1]} />
+          {CANOPY_CLUSTERS.map(([x, y, z, radius], index) => (
+            <mesh key={`${x}-${y}-${z}-${radius}`} castShadow position={[x, y, z]}>
+              <icosahedronGeometry args={[radius, 1]} />
               <meshStandardMaterial
                 color={index % 2 === 0 ? profile.foliageA : profile.foliageB}
                 roughness={0.86}
@@ -250,8 +288,11 @@ const ProceduralTree = ({ growth, treeType, yaw }: { growth: number, treeType: s
   );
 };
 
-const TreeVisual = ({ stage: _stage, rotation, growth, zoom = 1, treeType = 'oak' }: { stage: string, rotation: number, growth: number, zoom?: number, treeType?: string }) => {
-  const treeScale = (0.8 + (growth / 100) * 0.32) * Math.max(0.7, Math.min(1.35, zoom));
+const TreeVisual = ({ stage, rotation, daysInYear, zoom = 1, treeType = 'oak' }: { stage: string, rotation: number, daysInYear: number, zoom?: number, treeType?: string }) => {
+  // Use stage-aware ratio for the outer container scale too, so the
+  // motion.div wrapper itself grows with the tree geometry.
+  const stageRatio = computeStageRatio(daysInYear);
+  const treeScale = (0.72 + stageRatio * 0.40) * Math.max(0.7, Math.min(1.35, zoom));
   const yaw = (rotation * Math.PI) / 180;
 
   return (
@@ -259,7 +300,7 @@ const TreeVisual = ({ stage: _stage, rotation, growth, zoom = 1, treeType = 'oak
     <motion.div
       className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center"
       animate={{ scale: treeScale }}
-      transition={{ type: 'spring', stiffness: 110, damping: 22 }}
+      transition={{ type: 'spring', stiffness: 60, damping: 18 }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/70 to-transparent rounded-full blur-2xl" />
       <div className="absolute bottom-1 w-44 h-10 bg-[#5C4A39]/20 rounded-[100%] blur-md" />
@@ -301,7 +342,7 @@ const TreeVisual = ({ stage: _stage, rotation, growth, zoom = 1, treeType = 'oak
           />
         </mesh>
 
-        <ProceduralTree growth={growth} treeType={treeType} yaw={yaw} />
+        <ProceduralTree daysInYear={daysInYear} treeType={treeType} yaw={yaw} />
       </Canvas>
     </motion.div>
   );
@@ -361,13 +402,17 @@ const SettingsOverlay = ({
   onClose, 
   recoveryDate, 
   setRecoveryDate,
-  setResetDate
+  setResetDate,
+  treeName,
+  setTreeName,
 }: { 
   isOpen: boolean, 
   onClose: () => void,
   recoveryDate: string,
   setRecoveryDate: (date: string) => void,
-  setResetDate: (date: string) => void
+  setResetDate: (date: string) => void,
+  treeName: string,
+  setTreeName: (name: string) => void,
 }) => {
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -399,6 +444,23 @@ const SettingsOverlay = ({
             </div>
 
             <section className="space-y-6">
+              {/* Tree name */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#5A7D4D] mb-2">Tree Name</h3>
+                <p className="text-sm text-gray-500 mb-4">Give your tree a personal name. It will appear on the home screen.</p>
+                <input
+                  type="text"
+                  value={treeName}
+                  onChange={e => setTreeName(e.target.value)}
+                  placeholder="Your Tree"
+                  maxLength={32}
+                  className="w-full p-4 bg-[#F5F7F2] rounded-2xl text-lg font-serif outline-none focus:ring-2 focus:ring-[#5A7D4D]/20 border border-black/5"
+                />
+              </div>
+
+              <div className="border-t border-black/5" />
+
+              {/* Recovery date */}
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-[#5A7D4D] mb-2">Recovery Date</h3>
                 <p className="text-sm text-gray-500 mb-4">Set the date your journey began. Your tree's growth is based on this date.</p>
@@ -585,6 +647,11 @@ export default function App() {
     return d.toISOString().split('T')[0];
   });
 
+  // Tree name — displayed below the 3-D tree on the home screen
+  const [treeName, setTreeName] = useState(() => {
+    return localStorage.getItem('treeName') || '';
+  });
+
   const [resetDate, setResetDate] = useState(() => {
     return localStorage.getItem('resetDate') || '';
   });
@@ -592,6 +659,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('recoveryDate', recoveryDate);
   }, [recoveryDate]);
+
+  useEffect(() => {
+    localStorage.setItem('treeName', treeName);
+  }, [treeName]);
 
   useEffect(() => {
     if (resetDate) {
@@ -712,6 +783,49 @@ export default function App() {
   const [showReadingCelebration, setShowReadingCelebration] = useState(false);
   const readingCelebrationTimer = useRef<number | null>(null);
 
+  // --- "Water Your Tree" feature ---
+  // Each entry records the day key, optional note, and ISO timestamp.
+  // Migrates gracefully from the old string[] format.
+  type WateredEntry = { dayKey: string; note: string; date: string };
+  const [wateredDays, setWateredDays] = useState<WateredEntry[]>(() => {
+    const saved = localStorage.getItem('wateredDays');
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      // Migrate old string entries to the new object shape
+      return parsed.map((entry: unknown) =>
+        typeof entry === 'string'
+          ? { dayKey: entry, note: '', date: entry }
+          : (entry as WateredEntry)
+      );
+    } catch { return []; }
+  });
+  const [showWaterCelebration, setShowWaterCelebration] = useState(false);
+  const [showWaterInput, setShowWaterInput] = useState(false);  // inline note expanded
+  const [waterNote, setWaterNote] = useState('');               // textarea value
+  const waterCelebrationTimer = useRef<number | null>(null);
+
+  // Milestone rewards
+  const MILESTONES = [
+    { days: 7,   emoji: '🌱', label: '7 Days Strong!' },
+    { days: 30,  emoji: '🌿', label: '30 Days Strong!' },
+    { days: 90,  emoji: '🌳', label: '90 Days Strong!' },
+    { days: 365, emoji: '🌟', label: 'One Full Year!' },
+  ];
+  const [seenMilestones, setSeenMilestones] = useState<number[]>(() => {
+    const saved = localStorage.getItem('seenMilestones');
+    if (!saved) return [];
+    try { return JSON.parse(saved); } catch { return []; }
+  });
+  const [activeMilestone, setActiveMilestone] = useState<{ days: number; emoji: string; label: string } | null>(null);
+  const milestoneTimer = useRef<number | null>(null);
+
+  // Persist watered days to localStorage
+  useEffect(() => {
+    localStorage.setItem('wateredDays', JSON.stringify(wateredDays));
+  }, [wateredDays]);
+
   // Save state on close
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -722,6 +836,7 @@ export default function App() {
       localStorage.setItem('checkInHistory', JSON.stringify(checkInHistory));
       localStorage.setItem('journalEntries', JSON.stringify(journalEntries));
       localStorage.setItem('readingMoments', JSON.stringify(readingMoments));
+      localStorage.setItem('wateredDays', JSON.stringify(wateredDays));
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -741,6 +856,37 @@ export default function App() {
       }
     };
   }, []);
+
+  // Cleanup water celebration timer on unmount
+  useEffect(() => {
+    return () => {
+      if (waterCelebrationTimer.current !== null) {
+        window.clearTimeout(waterCelebrationTimer.current);
+      }
+    };
+  }, []);
+
+  // Check for newly reached milestones
+  useEffect(() => {
+    const hit = MILESTONES.find(m => daysClean >= m.days && !seenMilestones.includes(m.days));
+    if (hit) {
+      setSeenMilestones(prev => {
+        const next = [...prev, hit.days];
+        localStorage.setItem('seenMilestones', JSON.stringify(next));
+        return next;
+      });
+      setActiveMilestone(hit);
+      if (milestoneTimer.current !== null) window.clearTimeout(milestoneTimer.current);
+      milestoneTimer.current = window.setTimeout(() => setActiveMilestone(null), 5000);
+    }
+  }, [daysClean]);
+
+  // Cleanup milestone timer on unmount
+  useEffect(() => {
+    return () => {
+      if (milestoneTimer.current !== null) window.clearTimeout(milestoneTimer.current);
+    };
+  }, []);
   
   // Calculate day of year (1-365) to select the reading
   const getDayOfYear = () => {
@@ -756,6 +902,9 @@ export default function App() {
   const currentReading = DAILY_READINGS[readingOverride ?? currentReadingIndex];
   const todayDayKey = getLocalDayKey();
   const hasReadingSunToday = readingMoments.some((entry) => entry.dayKey === todayDayKey);
+
+  // True if the user already watered their tree today (prevents double-watering)
+  const hasWateredToday = wateredDays.some(e => e.dayKey === todayDayKey);
 
   const searchMeetingsByZip = async () => {
     const zip = zipSearch.trim();
@@ -875,6 +1024,27 @@ export default function App() {
     }, 1600);
   };
 
+  // Water the tree: saves entry with optional note, shows celebration.
+  // Only one watering is allowed per calendar day.
+  const handleWaterTree = (note: string) => {
+    if (hasWateredToday) return;
+    triggerHaptic([20, 40, 60]);
+    setWateredDays(prev => [
+      { dayKey: todayDayKey, note: note.trim(), date: new Date().toISOString() },
+      ...prev,
+    ]);
+    setShowWaterInput(false);
+    setWaterNote('');
+    setShowWaterCelebration(true);
+    if (waterCelebrationTimer.current !== null) {
+      window.clearTimeout(waterCelebrationTimer.current);
+    }
+    waterCelebrationTimer.current = window.setTimeout(() => {
+      setShowWaterCelebration(false);
+      waterCelebrationTimer.current = null;
+    }, 2500);
+  };
+
   const currentStage = STAGES.find(s => daysIntoCurrentYear >= s.minDays && daysIntoCurrentYear <= s.maxDays) || STAGES[0];
 
   // Handle drag and pinch gestures
@@ -920,12 +1090,38 @@ export default function App() {
           <PageWrapper id="home">
             <WeatherEffects weather={weather} />
 
+            {/* Tree interaction area — drag to rotate, pinch to zoom */}
             <div
               {...(bind() as any)}
               style={{ touchAction: 'none' }}
               className="cursor-grab active:cursor-grabbing relative z-10"
             >
-              <TreeVisual stage={currentStage.name} rotation={rotation} growth={growthPercent} zoom={zoom} treeType={currentTreeType} />
+              {/* Watered-today: soft blue-green glow ring under the tree */}
+              <AnimatePresence>
+                {hasWateredToday && (
+                  <motion.div
+                    key="water-glow"
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{
+                      background: 'radial-gradient(circle, rgba(107,173,187,0.22) 0%, transparent 70%)',
+                    }}
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Brief scale-pulse on the tree when watering animation fires */}
+              <motion.div
+                animate={showWaterCelebration ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
+              >
+                <TreeVisual stage={currentStage.name} rotation={rotation} daysInYear={daysIntoCurrentYear} zoom={zoom} treeType={currentTreeType} />
+              </motion.div>
+
+              {/* Sun badge — shown when today's daily reading was completed */}
               <AnimatePresence>
                 {hasReadingSunToday && (
                   <motion.div
@@ -945,9 +1141,46 @@ export default function App() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Water-drop badge — shown when tree has been watered today */}
+              <AnimatePresence>
+                {hasWateredToday && (
+                  <motion.div
+                    key="water-badge"
+                    initial={{ opacity: 0, y: 10, scale: 0.6 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.6 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="absolute top-6 left-2 sm:left-6"
+                  >
+                    <motion.div
+                      animate={{ y: [0, -3, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                      className="w-14 h-14 rounded-full bg-[#D4F0F7]/80 border border-[#6BADBBA]/30 shadow-lg shadow-[#6BADBB]/20 flex items-center justify-center"
+                    >
+                      <Droplets size={24} className="text-[#4A9BAA]" />
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+
+            {/* Tree name: shown below the 3-D tree, tap the pencil to rename */}
+            <div className="flex items-center justify-center gap-2 mt-2 mb-1">
+              <h2 className="text-2xl font-serif italic text-[#2D3328] tracking-tight">
+                {treeName.trim() || 'Your Tree'}
+              </h2>
+              <button
+                onClick={() => setIsSpecOpen(true)}
+                className="p-1.5 rounded-full text-gray-300 hover:text-[#5A7D4D] transition-colors"
+                aria-label="Rename tree"
+              >
+                <PenLine size={13} />
+              </button>
+            </div>
+
             {/* Stats: glass-morphism cards for Days Clean + Check-ins */}
-            <div className="mt-4 text-center w-full max-w-xs mx-auto space-y-3">
+            <div className="mt-2 text-center w-full max-w-xs mx-auto space-y-3">
               <div className="flex gap-3">
                 <div className="flex-1 bg-white/75 backdrop-blur-sm rounded-2xl py-4 px-3 shadow-sm border border-black/[0.05]">
                   <motion.div className="text-4xl font-serif italic text-[#2D3328] leading-none">{daysClean}</motion.div>
@@ -959,19 +1192,133 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Growth progress bar inside its own card */}
+              {/* Growth progress bar */}
               <div className="bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3.5 shadow-sm border border-black/[0.05] flex flex-col gap-2">
                 <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
-                  <motion.div 
+                  <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${growthPercent}%` }}
                     className="h-full bg-gradient-to-r from-[#5A7D4D] to-[#8BA888] rounded-full"
                   />
                 </div>
-                <p className="text-[9px] text-gray-400 font-medium text-center">
-                  {currentStage.name} • {growthPercent}% to Maturity
-                </p>
+                {/* Stage name + description — animated when stage changes */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentStage.name}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center gap-0.5"
+                  >
+                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#5A7D4D]">
+                      {currentStage.name} &bull; {growthPercent}% to Maturity
+                    </p>
+                    <p className="text-[9px] text-gray-400 font-serif italic text-center leading-snug">
+                      {currentStage.description}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
               </div>
+
+              {/* ── Water Your Tree ── */}
+              <AnimatePresence mode="wait">
+                {showWaterCelebration ? (
+                  // Confirmation shown for 2.5 s after submitting
+                  <motion.div
+                    key="watered-confirm"
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.95 }}
+                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                    className="flex items-center justify-center gap-2.5 bg-[#D4F0F7]/70 backdrop-blur-sm border border-[#6BADBB]/25 rounded-2xl py-4 px-5 shadow-sm"
+                  >
+                    <Droplets size={18} className="text-[#4A9BAA] shrink-0" />
+                    <p className="text-sm font-serif italic text-[#2D3328]">
+                      Your tree has been watered 🌱
+                    </p>
+                  </motion.div>
+
+                ) : hasWateredToday ? (
+                  // Already-watered: muted pill for the rest of the day
+                  <motion.div
+                    key="watered-done"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center gap-2 bg-black/[0.03] border border-black/[0.05] rounded-2xl py-3.5 px-5"
+                  >
+                    <Droplets size={15} className="text-[#4A9BAA]" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      Watered Today ✓
+                    </p>
+                  </motion.div>
+
+                ) : showWaterInput ? (
+                  // ── Inline check-in note expanded ──
+                  <motion.div
+                    key="water-input"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                    className="bg-white/80 backdrop-blur-sm border border-black/[0.06] rounded-2xl p-4 shadow-sm space-y-3"
+                  >
+                    {/* Header row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Droplets size={15} className="text-[#4A9BAA]" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#4A9BAA]">
+                          Water Your Tree
+                        </p>
+                      </div>
+                      {/* Cancel collapses the input without watering */}
+                      <button
+                        onClick={() => { setShowWaterInput(false); setWaterNote(''); }}
+                        className="p-1 rounded-full text-gray-300 hover:text-gray-500 transition-colors"
+                        aria-label="Cancel"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    {/* Note textarea — optional, placeholder nudges reflection */}
+                    <textarea
+                      value={waterNote}
+                      onChange={e => setWaterNote(e.target.value)}
+                      placeholder="How are you feeling today? (optional)"
+                      rows={3}
+                      autoFocus
+                      className="w-full p-3 bg-[#F5F7F2] rounded-xl border border-black/5 text-sm font-serif outline-none focus:ring-2 focus:ring-[#4A9BAA]/20 resize-none text-[#2D3328] placeholder:text-gray-300"
+                    />
+
+                    {/* Submit — watering doesn't require a note */}
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => handleWaterTree(waterNote)}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#4A9BAA] to-[#6BADBB] text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-md shadow-[#4A9BAA]/20"
+                    >
+                      <Droplets size={14} />
+                      Water My Tree
+                    </motion.button>
+                  </motion.div>
+
+                ) : (
+                  // Primary button — click opens the note input
+                  <motion.button
+                    key="water-btn"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setShowWaterInput(true)}
+                    className="w-full flex items-center justify-center gap-2.5 py-4 bg-gradient-to-r from-[#4A9BAA] to-[#6BADBB] text-white rounded-2xl font-bold uppercase tracking-widest text-xs shadow-md shadow-[#4A9BAA]/25 hover:shadow-lg hover:shadow-[#4A9BAA]/30 transition-shadow"
+                  >
+                    <Droplets size={16} />
+                    Water Your Tree Today
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
           </PageWrapper>
         );
@@ -1692,6 +2039,30 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Milestone Banner */}
+      <AnimatePresence>
+        {activeMilestone && (
+          <motion.div
+            key={activeMilestone.days}
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/90 backdrop-blur-md border border-[#5A7D4D]/20 shadow-lg"
+          >
+            <span className="text-2xl leading-none">{activeMilestone.emoji}</span>
+            <span className="text-sm font-bold text-[#2D3328] tracking-tight">{activeMilestone.label}</span>
+            <button
+              onClick={() => { setActiveMilestone(null); if (milestoneTimer.current !== null) window.clearTimeout(milestoneTimer.current); }}
+              className="ml-1 p-1 rounded-full hover:bg-black/5 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Dismiss"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="px-6 pb-3 flex justify-between items-center z-10 border-b border-black/[0.05]" style={{ paddingTop: 'max(1rem, var(--sat))' }}>
         <div className="flex flex-col">
@@ -1795,6 +2166,8 @@ export default function App() {
         recoveryDate={recoveryDate}
         setRecoveryDate={setRecoveryDate}
         setResetDate={setResetDate}
+        treeName={treeName}
+        setTreeName={setTreeName}
       />
 
       {/* Global Styles for no-scrollbar */}
